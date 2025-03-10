@@ -1,62 +1,40 @@
-import requests
-from bs4 import BeautifulSoup as bs
-from lxml import html
-from markdown2 import markdown as md
-import html2text
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+import requests
+from bs4 import BeautifulSoup
 import urllib.parse
-from googletrans import Translator
-
-h2t = html2text.HTML2Text()
-h2t.ignore_images = True
-t = Translator()
 app = FastAPI()
 
-@app.get("/", response_class=HTMLResponse)
-def index():
-  return "Hello World!"
+@app.get("/novel/{novel}")
+def get_novel_info(novel):
+    response = requests.get(f"https://centralnovel.com/series/{novel}/", verify=False)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    name = soup.select_one("h1[itemprop=name]").text.strip()
+    desc = soup.select_one(".entry-content p").text.strip()
+    cover = soup.select_one("div.thumb img")["src"]
+    chapters = [a["href"].split("/")[-2] for a in soup.select("div.bixbox.bxcl.epcheck a")][::-1][:-2]
+    return {"nome": name, "desc": desc, "cover": cover, "chapters": chapters}
 
-@app.get("/search/{query}")
-def search(query):
-  r = requests.get(f"https://novelbin.me/ajax/search-novel?keyword={query}").text
-  h = html.fromstring(r)
-  lista = [ (a.items()[0][1].split("/")[-1], a.text) for a in h.xpath("//a") ]
-  return str(lista)
+@app.get("/chapter/{chapter}")
+def get_chapter(chapter):
+    response = requests.get(f"https://centralnovel.com/{chapter}/", verify=False)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    title = soup.select_one("h1.entry-title").text.strip()
+    subtitle = soup.select_one("div.cat-series").text.strip()
+    content = str(soup.select_one("div.epcontent.entry-content"))
+    return {"title": title, "subtitle": subtitle, "content": content}
 
-@app.get("/novel/{novel_id}")
-def novel_info(novel_id):
-  r = requests.get(f"http://104.18.37.248/novel-book/{novel_id}", headers={"Host": "novelbin.com"})
-  if r.status_code == 404:
-    return {"sucesso": False}
-  else:
-    h = bs(r.text, features="lxml")
-    title = t.translate(html.fromstring(r.text).xpath("//h3[@class='title']/text()")[0]).text #.text.find_all("h3", {"class": "title"})[0].text, dest="pt").text
-    desc = t.translate(h.find_all("div", {"class": "desc-text"})[0].text, dest="pt").text
-    lista = [ a.values()[0] for a in html.fromstring(requests.get(f"https://novelbin.com/ajax/chapter-option?novelId={novel_id}").text).xpath("//option") ]
-    return {"sucesso": True, "resultado": {"title": title, "desc": desc, "cover": f"https://novelbin.me/media/novel/{novel_id}.jpg", "chapters": lista}}
-
-@app.get("/novel/{novel_id}/{chapter_id}")
-def chapter(novel_id, chapter_id):
-  r = requests.get(f"http://104.18.37.248/novel-book/{novel_id}", headers={"Host": "novelbin.com"})
-  if r.status_code == 404:
-    return {"sucesso": False}
-  else:
-    caps = {}
-    lista = [ caps.update({a.values()[0]:f"http://104.18.37.248/b/{novel_id}/{a.values()[0]}"}) for a in html.fromstring(requests.get(f"https://novelbin.com/ajax/chapter-option?novelId={novel_id}").text).xpath("//option") ]
-    if chapter_id in caps:
-      r = requests.get(caps[chapter_id], headers={"Host": "novelbin.com"}).text
-      h = bs(r, features="lxml")
-      div = [ i.replace("\n", " ") for i in h2t.handle(str(h.find_all("div", {"class": "chr-c"})[0])).split("\n\n") ]
-      title = "".join(h.find_all("span", {"class": "chr-text"})[0].text.replace("\n", "").split("  "))
-      #
-      #
-      #
-      #js = requests.get(f"https://translate.googleapis.com/translate_a/single?dt=t&dt=bd&dt=qc&dt=rm&dt=ex&client=gtx&hl=en&sl=auto&tl=pt&q={text}&dj=1&tk=536966.536966").json()
-      #trad = "".join([ i["trans"] for i in js["sentences"] ])
-      #epcontent = md(trad)
-      #chapter = f'''<html><head><title>{title}</title></head><body><h1>{title}</h1>{div}</body></html>'''
-      chapter = {"sucesso": True, "resultado": {"title": title, "content": div}}
-      return chapter
-    else:
+@app.get("/search/{text}")
+def search(text):
+    url = "https://centralnovel.com/wp-admin/admin-ajax.php"
+    headers = {"Accept": "*/*", "Accept-Language": "pt-BR,pt;q=0.8,en-US;q=0.5,en;q=0.3", "TE": "trailers", "Content-Type": "application/x-www-form-urlencoded"}
+    query = urllib.parse.quote_plus(text)
+    data = "action=ts_ac_do_search&ts_ac_query={}".format(query)
+    resp = requests.post(url, headers=headers, data=data, verify=False).json()
+    lista = resp['series'][0]['all']
+    if lista == []:
       return {"sucesso": False}
+    else:
+      return {"sucesso": True, "resultado": [ {"nome": a['post_title'], "url": a['post_link'].split("/")[-2], "cover": a['post_image']} for a in lista ]}
