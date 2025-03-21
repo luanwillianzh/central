@@ -11,7 +11,7 @@ app = FastAPI()
 def get_novel_info(novel):
     response = requests.get(f"https://centralnovel.com/series/{novel}/", verify=False)
     soup = BeautifulSoup(response.text, 'html.parser')
-    name = soup.select_one("h1[itemprop=name]").text.strip()
+    name = soup.select_one("h1[itemprop=name]").text.strip().replace("\n", " ")
     desc = soup.select_one(".entry-content p").text.strip()
     cover = soup.select_one("div.thumb img")["src"]
     chapters = [a["href"].split("/")[-2] for a in soup.select("div.bixbox.bxcl.epcheck a")][::-1][:-2]
