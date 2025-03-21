@@ -21,8 +21,8 @@ def get_novel_info(novel):
 def get_chapter(chapter):
     response = requests.get(f"https://centralnovel.com/{chapter}/", verify=False)
     soup = BeautifulSoup(response.text, 'html.parser')
-    title = soup.select_one("h1.entry-title").text.strip()
-    subtitle = soup.select_one("div.cat-series").text.strip()
+    title = soup.select_one("h1.entry-title").text.strip().replace("\n", " ")
+    subtitle = soup.select_one("div.cat-series").text.strip().replace("\n", " ")
     content = str(soup.select_one("div.epcontent.entry-content"))
     return {"title": title, "subtitle": subtitle, "content": content}
 
