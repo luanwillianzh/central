@@ -27,4 +27,4 @@ def get_chapter(chapter):
 @app.get("/search/{text}")
 def search(text):
     resp = requests.get("https://raw.githubusercontent.com/luanwillianzh/Novel-Reader-Data/refs/heads/main/info.json").json()
-    return {"resultado: [ resp[novel_id] for novel_id in resp if text.lower() in str(resp[novel_id]).lower() ]}
+    return {"resultado": [ resp[novel_id] for novel_id in resp if text.lower() in str(resp[novel_id]).lower() ]}
