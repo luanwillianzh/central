@@ -9,21 +9,16 @@ app = FastAPI()
 
 @app.get("/novel/{novel}")
 def get_novel_info(novel):
-    response = requests.get(f"https://centralnovel.com/series/{novel}/", verify=False)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    name = soup.select_one("h1[itemprop=name]").text.strip().replace("\n", " ")
-    desc = soup.select_one(".entry-content p").text.strip()
-    cover = soup.select_one("div.thumb img")["src"]
-    chapters = [a["href"].split("/")[-2] for a in soup.select("div.bixbox.bxcl.epcheck a")][::-1][:-2]
-    return {"nome": name, "desc": desc, "cover": cover, "chapters": chapters}
+    response = requests.get(f"https://raw.githubusercontent.com/luanwillianzh/Novel-Reader-Data/refs/heads/main/{novel}/info.json", verify=False).json()
+    return response
 
-@app.get("/chapter/{chapter}")
+@app.get("/novel/{novel}/chapter/{chapter}")
 def get_chapter(chapter):
-    response = requests.get(f"https://centralnovel.com/{chapter}/", verify=False)
+    response = requests.get(f"https://raw.githubusercontent.com/luanwillianzh/Novel-Reader-Data/refs/heads/main/{novel}/{chapter}.html", verify=False)
     soup = BeautifulSoup(response.text, 'html.parser')
-    title = soup.select_one("h1.entry-title").text.strip().replace("\n", " ")
+    title = soup.select_one("h1").text.strip().replace("\n", " ")
     try:
-      subtitle = soup.select_one("div.cat-series").text.strip().replace("\n", " ")
+      subtitle = soup.select_one("h2").text.strip().replace("\n", " ")
     except:
       subtitle = ""
     content = str(soup.select_one("div.epcontent.entry-content"))
@@ -31,13 +26,5 @@ def get_chapter(chapter):
 
 @app.get("/search/{text}")
 def search(text):
-    url = "https://centralnovel.com/wp-admin/admin-ajax.php"
-    headers = {"Accept": "*/*", "Accept-Language": "pt-BR,pt;q=0.8,en-US;q=0.5,en;q=0.3", "TE": "trailers", "Content-Type": "application/x-www-form-urlencoded"}
-    query = urllib.parse.quote_plus(text)
-    data = "action=ts_ac_do_search&ts_ac_query={}".format(query)
-    resp = requests.post(url, headers=headers, data=data, verify=False).json()
-    lista = resp['series'][0]['all']
-    if lista == []:
-      return {"sucesso": False}
-    else:
-      return {"sucesso": True, "resultado": [ {"nome": a['post_title'], "url": a['post_link'].split("/")[-2], "cover": a['post_image']} for a in lista ]}
+    resp = requests.get("https://raw.githubusercontent.com/luanwillianzh/Novel-Reader-Data/refs/heads/main/info.json").json()
+    return {novel_id for novel_id in resp if text in str(novel_id)}
