@@ -15,7 +15,8 @@ def get_novel_info(novel):
     cover = soup.select_one("div.thumb img")["src"]
     lista = soup.select("div.bixbox.bxcl.epcheck a")[::-1][:-2]
     chapters = [ (" - ".join([ i.text for i in a.select("div")[:2] ]), a['href'].split('/')[-2]) for a in lista ]
-    return {"nome": name, "desc": desc, "cover": cover, "chapters": chapters}
+    genres = [ [a["href"].split("/")[-2], a.text] for a in soup.select(".genxed a")]
+    return {"nome": name, "desc": desc, "cover": cover, "chapters": chapters, "genres": genres}
 
 @app.get("/chapter/{chapter}")
 def get_chapter(chapter):
